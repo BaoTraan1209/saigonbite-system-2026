@@ -15,4 +15,4 @@
 | TC-UC14-01 | UC14 | Admin creates/updates brand or menu item | Record is saved and returned |
 | TC-UC14-02 | UC14 | Delete referenced menu item | Database prevents deletion; record should be archived/deactivated |
 | TC-UC16-01 | UC16 | Manager requests reports for date range | Sales, hub workload and delivery performance are returned |
-| TC-UC16-02 | UC16 | Non-manager requests report | API returns 403 |
+| TC-UC16-02 | UC16 | Non-manager requests report | Deferred: this scaffold has no authentication or role authorization; add it before exposing reports |

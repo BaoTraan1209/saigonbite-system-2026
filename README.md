@@ -26,13 +26,15 @@ Starter implementation for the six selected use cases:
 9. Open http://127.0.0.1:8000
 
 ## API endpoints
-- GET/POST `/api/hubs`; GET/PUT `/api/hubs/{hub}`; PATCH `/api/hubs/{hub}/status`
+- GET/POST `/api/hubs`; GET/PUT `/api/hubs/{hub}`; PATCH `/api/hubs/{hub}/status`; PUT `/api/hubs/{hub}/brands`
 - GET/POST `/api/brands`; GET/PUT/DELETE `/api/brands/{brand}`
-- GET `/api/brands/{brand}/items`; POST `/api/menu-items`; PUT/DELETE `/api/menu-items/{menuItem}`
+- GET `/api/brands/{brand}/items`; GET `/api/menu-items`; POST `/api/menu-items`; PUT/DELETE `/api/menu-items/{menuItem}`
 - GET/POST `/api/orders`; GET `/api/orders/{order}`
 - GET `/api/kitchen/orders`; PATCH `/api/kitchen/orders/{order}/status`
 - GET `/api/deliveries`; PATCH `/api/deliveries/{delivery}/status`
-- GET `/api/reports/summary`
+- GET `/api/reports/summary?from=YYYY-MM-DD&to=YYYY-MM-DD` (date filters are optional)
+
+Orders require `hub_id`, `brand_id`, customer details, `payment_method`, and one or more menu items. Payment methods are stored without processing a payment; accepted values include `CASH_ON_DELIVERY`, `CARD`, and `ONLINE`. Hub brand assignments can be created with `brand_ids` when creating a hub or replaced through `PUT /api/hubs/{hub}/brands`.
 
 ## Architecture
 - Models: Eloquent entities and relationships.
