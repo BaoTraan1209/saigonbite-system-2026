@@ -78,9 +78,9 @@ class OrderService
             }
 
             $subtotal = number_format($subtotalCents / 100, 2, '.', '');
-            $deliveryFee = '0.00';
+            $deliveryFee = '15000.00';
             $discountAmount = '0.00';
-            $totalAmount = number_format($subtotalCents / 100, 2, '.', '');
+            $totalAmount = number_format(($subtotalCents + 15000 * 100) / 100, 2, '.', '');
 
             $order = Order::create([
                 'hub_id' => $hub->id,

@@ -1,0 +1,2 @@
+@php($steps = $steps ?? ['Hub & brand','Your meal','Checkout'])
+<div class="steps">@foreach($steps as $i=>$step)<div class="step {{ $i < ($activeStep-1) ? 'done' : ($i === ($activeStep-1) ? 'active' : '') }}"><i>{{ $i < ($activeStep-1) ? '✓' : str_pad($i+1,2,'0',STR_PAD_LEFT) }}</i>{{ $step }}</div>@if(!$loop->last)<span class="step-line"></span>@endif @endforeach</div>
