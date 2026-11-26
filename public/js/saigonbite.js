@@ -156,6 +156,6 @@ import { get, post } from '/assets/js/api.js';
   }
 
   const path = location.pathname;
-  const task = path === '/order' ? loadStart() : path === '/order/menu' ? loadMenu() : path === '/order/checkout' ? loadCheckout() : path === '/order/review' ? loadReview() : path === '/order/success' ? loadSuccess() : Promise.resolve();
+  const task = path === '/' || path === '/order' ? loadStart() : path === '/order/menu' ? loadMenu() : path === '/order/checkout' ? loadCheckout() : path === '/order/review' ? loadReview() : path === '/order/success' ? loadSuccess() : Promise.resolve();
   task.catch(showError);
 })();

@@ -84,6 +84,7 @@ class OrderService
 
             $order = Order::create([
                 'hub_id' => $hub->id,
+                'customer_id' => $data['customer_id'] ?? null,
                 'customer_name' => $data['customer_name'],
                 'customer_phone' => $data['customer_phone'],
                 'delivery_address' => $data['delivery_address'],

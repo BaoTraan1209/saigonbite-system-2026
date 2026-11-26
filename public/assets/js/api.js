@@ -5,6 +5,7 @@ export async function request(path, options = {}) {
     ...options,
     headers: {
       Accept: 'application/json',
+      ...(document.querySelector('meta[name="csrf-token"]')?.content ? { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } : {}),
       ...(options.body ? { 'Content-Type': 'application/json' } : {}),
       ...options.headers,
     },

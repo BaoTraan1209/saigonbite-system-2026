@@ -23,7 +23,10 @@ Starter implementation for the six selected use cases:
 6. Run `php artisan key:generate`.
 7. Run `php artisan migrate --seed`. This loads the public TP.HCM branch/menu snapshot documented in [database/REAL_DATA_SOURCES.md](database/REAL_DATA_SOURCES.md). Re-running the seeder updates the same records instead of adding duplicates.
 8. Run `php artisan serve`.
-9. Open http://127.0.0.1:8000
+9. Open http://127.0.0.1:8000 and sign in.
+
+## Login accounts
+The default local accounts are `admin / 123456` and `customer / 123456`. The admin role manages UC14 brands and menu items; the customer role uses UC3 ordering. Passwords are stored as hashes. To create or reset these accounts without re-seeding restaurant data, run `php artisan db:seed --class=DefaultAccountsSeeder`.
 
 ## API endpoints
 - GET/POST `/api/hubs`; GET/PUT `/api/hubs/{hub}`; PATCH `/api/hubs/{hub}/status`; PUT `/api/hubs/{hub}/brands`
@@ -47,7 +50,7 @@ Orders require `hub_id`, `brand_id`, customer details, `payment_method`, and one
 - UC3 stores the selected payment method; this starter does not implement a payment gateway.
 - The restaurant names, branches, and menu prices are a public-data snapshot and can change. The app stores orders locally; it does not send them to restaurant POS systems or synchronize live stock, branch availability, or capacity. Confirm current prices and obtain restaurant integration approval before accepting real customer orders.
 - Hub capacity is an internal SaigonBite queue setting, initially 20 per branch, not a capacity figure published by the restaurant.
-- The starter uses simplified role labels and does not yet include production authentication/authorization.
-- Add authorization policies/middleware before exposing administrative endpoints.
+- Login and role checks currently cover only the admin (UC14) and customer (UC3) flows; other staff roles are outside this login scope.
+- Default credentials are for local development and should be changed before deployment.
 - Confirm all status transitions and report definitions against the final approved use case descriptions.
 - This is a learning-project scaffold, not production-ready software.

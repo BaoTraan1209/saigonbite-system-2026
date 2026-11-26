@@ -11,6 +11,7 @@ class Order extends Model
 {
     protected $fillable = [
         'hub_id',
+        'customer_id',
         'customer_name',
         'customer_phone',
         'delivery_address',

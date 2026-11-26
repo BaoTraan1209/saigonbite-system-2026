@@ -19,6 +19,10 @@ class OrderController extends Controller
 
     public function show(Order $order)
     {
+        if (auth()->user()?->role === 'customer' && (int) $order->customer_id !== (int) auth()->id()) {
+            abort(404);
+        }
+
         return response()->json($order->load(['hub', 'items.menuItem', 'delivery']));
     }
 
@@ -37,6 +41,7 @@ class OrderController extends Controller
             'CARD' => 'CARD',
             'ONLINE' => 'ONLINE',
         };
+        $data['customer_id'] = $request->user()->id;
 
         return response()->json($this->service->createOrder($data), 201);
     }

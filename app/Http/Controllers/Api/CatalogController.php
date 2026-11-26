@@ -8,6 +8,7 @@ use App\Models\MenuItem;
 use App\Repositories\CatalogRepository;
 use App\Services\CatalogService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CatalogController extends Controller
 {
@@ -37,8 +38,8 @@ class CatalogController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:150',
-            'description' => 'nullable|string',
+            'name' => ['required', 'string', 'max:150', Rule::unique('brands', 'name')],
+            'description' => 'nullable|string|max:500',
             'status' => 'sometimes|in:active,inactive,archived',
         ]);
 
@@ -48,8 +49,8 @@ class CatalogController extends Controller
     public function update(Request $request, Brand $brand)
     {
         $data = $request->validate([
-            'name' => 'sometimes|required|string|max:150',
-            'description' => 'sometimes|nullable|string',
+            'name' => ['sometimes', 'required', 'string', 'max:150', Rule::unique('brands', 'name')->ignore($brand->id)],
+            'description' => 'sometimes|nullable|string|max:500',
             'status' => 'sometimes|in:active,inactive,archived',
         ]);
 
@@ -58,9 +59,8 @@ class CatalogController extends Controller
 
     public function destroy(Brand $brand)
     {
-        $this->service->deleteBrand($brand);
-
-        return response()->json(['message' => 'Brand deleted.']);
+        // UC14 archives brands so historical orders keep their catalog references.
+        return response()->json($this->service->updateBrand($brand, ['status' => 'archived']));
     }
 
     public function items(Brand $brand)
@@ -85,8 +85,8 @@ class CatalogController extends Controller
     {
         $data = $request->validate([
             'brand_id' => 'required|exists:brands,id',
-            'name' => 'required|string|max:150',
-            'description' => 'nullable|string',
+            'name' => ['required', 'string', 'max:150', Rule::unique('menu_items', 'name')->where('brand_id', $request->input('brand_id'))],
+            'description' => 'nullable|string|max:500',
             'price' => 'required|numeric|min:0',
             'is_available' => 'sometimes|boolean',
         ]);
@@ -96,9 +96,11 @@ class CatalogController extends Controller
 
     public function updateItem(Request $request, MenuItem $menuItem)
     {
+        $brandId = (int) $request->input('brand_id', $menuItem->brand_id);
         $data = $request->validate([
-            'name' => 'sometimes|required|string|max:150',
-            'description' => 'sometimes|nullable|string',
+            'brand_id' => 'sometimes|integer|exists:brands,id',
+            'name' => ['sometimes', 'required', 'string', 'max:150', Rule::unique('menu_items', 'name')->where('brand_id', $brandId)->ignore($menuItem->id)],
+            'description' => 'sometimes|nullable|string|max:500',
             'price' => 'sometimes|numeric|min:0',
             'is_available' => 'sometimes|boolean',
         ]);
@@ -108,8 +110,11 @@ class CatalogController extends Controller
 
     public function deleteItem(MenuItem $menuItem)
     {
-        $this->service->deleteMenuItem($menuItem);
+        if ($menuItem->orderItems()->exists()) {
+            $this->service->deleteMenuItem($menuItem);
+        }
 
-        return response()->json(['message' => 'Menu item deleted.']);
+        // Keep order history intact; UC14's delete action deactivates the item.
+        return response()->json($this->service->updateMenuItem($menuItem, ['is_available' => false]));
     }
 }

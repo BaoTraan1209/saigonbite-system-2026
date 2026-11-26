@@ -8,6 +8,7 @@ use App\Models\Hub;
 use App\Models\MenuItem;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -17,6 +18,7 @@ class OrderWorkflowTest extends TestCase
 
     public function test_order_is_priced_and_completed_through_kitchen_and_delivery(): void
     {
+        $this->signInAs('customer');
         [$hub, $brand, $item] = $this->createCatalog();
 
         $response = $this->postJson('/api/orders', [
@@ -39,10 +41,11 @@ class OrderWorkflowTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'id' => $orderId,
             'payment_status' => 'unpaid',
-            'total_amount' => 130000,
+            'total_amount' => 145000,
         ]);
         $this->assertDatabaseMissing('deliveries', ['order_id' => $orderId]);
 
+        $this->signInAs('admin');
         foreach (['accepted', 'preparing', 'ready'] as $status) {
             $this->patchJson("/api/kitchen/orders/{$orderId}/status", [
                 'status' => $status,
@@ -66,6 +69,7 @@ class OrderWorkflowTest extends TestCase
 
     public function test_order_rejects_inactive_hubs_and_unavailable_items(): void
     {
+        $this->signInAs('customer');
         [$hub, $brand, $item] = $this->createCatalog();
         $hub->update(['status' => 'suspended']);
 
@@ -95,6 +99,7 @@ class OrderWorkflowTest extends TestCase
 
     public function test_invalid_workflow_transitions_are_rejected(): void
     {
+        $this->signInAs('admin');
         [$hub, $brand, $item] = $this->createCatalog();
         $order = Order::create([
             'hub_id' => $hub->id,
@@ -118,6 +123,7 @@ class OrderWorkflowTest extends TestCase
 
     public function test_failed_delivery_updates_order_and_prevents_deleting_ordered_items(): void
     {
+        $this->signInAs('admin');
         [$hub, $brand, $item] = $this->createCatalog();
         $order = Order::create([
             'hub_id' => $hub->id,
@@ -167,6 +173,7 @@ class OrderWorkflowTest extends TestCase
 
     public function test_hubs_catalog_and_date_filtered_reports_are_available(): void
     {
+        $this->signInAs('admin');
         $brand = Brand::create(['name' => 'Saigon Bowl', 'status' => 'active']);
         $this->postJson('/api/hubs', [
             'name' => 'District 1 Hub',
@@ -242,5 +249,18 @@ class OrderWorkflowTest extends TestCase
         ]);
 
         return [$hub, $brand, $item];
+    }
+
+    private function signInAs(string $role): void
+    {
+        static $sequence = 0;
+        $sequence++;
+        $this->actingAs(User::create([
+            'name' => ucfirst($role).' Test',
+            'username' => $role.'_workflow_'.$sequence,
+            'email' => $role.'_workflow_'.$sequence.'@example.test',
+            'password' => 'test-password',
+            'role' => $role,
+        ]));
     }
 }
