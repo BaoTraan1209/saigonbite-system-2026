@@ -10,6 +10,7 @@ import { get, post } from '/assets/js/api.js';
   const $ = (id) => document.getElementById(id);
   const money = (value) => `${new Intl.NumberFormat('vi-VN').format(Number(value) || 0)} ₫`;
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const itemInitial = (name) => esc(Array.from(String(name || '').trim())[0]?.toLocaleUpperCase('vi-VN') || '?');
   const showError = (error) => { alert(error.message || 'Không thể tải dữ liệu.'); };
   document.querySelectorAll('.voucher-row, .voucher-applied').forEach((element) => { element.hidden = true; });
 
@@ -66,7 +67,7 @@ import { get, post } from '/assets/js/api.js';
     $('menu-address').textContent = hub.address;
     if ($('menu-status')) $('menu-status').textContent = hub.status;
     const list = $('menu-list');
-    list.innerHTML = items.map((item) => `<article class="menu-item ${item.is_available ? '' : 'unavailable'}" data-id="${item.id}"><div class="food">🍽</div><div class="food-info"><small>${esc(brand.name)}</small><h3>${esc(item.name)}</h3><p>${esc(item.description || '')}</p><b>${money(item.price)}</b>${item.is_available ? '' : '<span class="soldout">Currently unavailable</span>'}</div><div class="qty"><button data-action="minus" ${item.is_available ? '' : 'disabled'}>−</button><b data-qty>${Number(state.cart[item.id] || 0)}</b><button data-action="plus" ${item.is_available ? '' : 'disabled'}>+</button></div></article>`).join('') || '<p>Menu items have not been added yet.</p>';
+    list.innerHTML = items.map((item) => `<article class="menu-item ${item.is_available ? '' : 'unavailable'}" data-id="${item.id}"><div class="food" aria-hidden="true">${itemInitial(item.name)}</div><div class="food-info"><small>${esc(brand.name)}</small><h3>${esc(item.name)}</h3><p>${esc(item.description || '')}</p><b>${money(item.price)}</b>${item.is_available ? '' : '<span class="soldout">Currently unavailable</span>'}</div><div class="qty"><button data-action="minus" ${item.is_available ? '' : 'disabled'}>−</button><b data-qty>${Number(state.cart[item.id] || 0)}</b><button data-action="plus" ${item.is_available ? '' : 'disabled'}>+</button></div></article>`).join('') || '<p>Menu items have not been added yet.</p>';
     const render = () => {
       list.querySelectorAll('.menu-item').forEach((card) => {
         const quantity = Number(state.cart[card.dataset.id] || 0);

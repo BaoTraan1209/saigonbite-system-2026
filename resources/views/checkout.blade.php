@@ -1,6 +1,7 @@
 @extends('layout')
 @section('title','Checkout | SaigonBite')
 @section('content')
+@include('partials.customer-back',['backRoute'=>'order.menu'])
 @include('partials.progress',['activeStep'=>3])
 <div class="page-heading"><small class="eyebrow">CHECKOUT</small><h1>Delivery details</h1><p>Enter the details to record your order.</p></div>
 <div class="row g-4"><section class="col-lg-8"><form id="checkout-form" novalidate>

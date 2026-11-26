@@ -1,6 +1,7 @@
 @extends('layout')
 @section('title','Menu | SaigonBite')
 @section('content')
+@include('partials.customer-back',['backRoute'=>'order.start'])
 @include('partials.progress',['activeStep'=>2])
 <div class="intro"><div><small class="eyebrow">RESTAURANT MENU</small><h1>Choose your meal.</h1><p>Prices are read from the catalog in the database.</p></div><div class="hub-mini"><b id="menu-brand">Loading brand…</b><span id="menu-address">Loading address…</span><em class="available" id="menu-status">Catalog</em><a href="{{ route('order.start') }}">Change location</a></div></div>
 <div class="row g-4"><section class="col-lg-8"><div class="section-head"><h2>Menu items</h2><p>Select quantities to add items.</p></div><div class="vstack gap-3" id="menu-list"><p class="muted">Loading menu…</p></div></section>

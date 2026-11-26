@@ -1,6 +1,7 @@
 @extends('layout')
 @section('title','Review order | SaigonBite')
 @section('content')
+@include('partials.customer-back',['backRoute'=>'order.checkout'])
 @include('partials.progress',['activeStep'=>4,'steps'=>['Restaurant','Menu','Checkout','Review']])
 <div class="page-heading"><small class="eyebrow orange-text">REVIEW</small><h1>Review your order</h1><p>Check your details before saving the order.</p></div>
 <div class="row g-4"><section class="col-lg-8">

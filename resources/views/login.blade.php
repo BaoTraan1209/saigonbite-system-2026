@@ -185,8 +185,6 @@
                                 {{ old('remember') ? 'checked' : '' }}>
                         <label class="form-check-label" for="remember">Remember me</label>
                     </div>
-
-                    <span class="auth-forgot">Admin · Customer access</span>
                 </div>
 
                 {{-- Submit --}}
@@ -201,10 +199,6 @@
                         </span>
                 </button>
             </form>
-            <div class="auth-demo-accounts">
-                <span>Admin</span><code>admin / 123456</code>
-                <span>Customer</span><code>customer / 123456</code>
-            </div>
         </div>
     </section>
 </main>

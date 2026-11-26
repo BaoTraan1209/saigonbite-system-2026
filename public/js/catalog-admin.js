@@ -30,20 +30,15 @@ function brandInitial(brand) {
   return esc(String(brand?.name || 'SB').trim().slice(0, 2).toUpperCase());
 }
 
+function foodInitial(name) {
+  return esc(Array.from(String(name || '').trim())[0]?.toLocaleUpperCase('vi-VN') || '?');
+}
+
 function brandThumb(brand, index = 0) {
   return `<span class="brand-thumb" data-tone="${index % 3}" aria-hidden="true">${brandInitial(brand)}</span>`;
 }
 
-function foodEmoji(name) {
-  const text = String(name || '').toLowerCase();
-  if (text.includes('chicken') || text.includes('gà')) return '🍗';
-  if (text.includes('burger')) return '🍔';
-  if (text.includes('fries') || text.includes('khoai')) return '🍟';
-  if (text.includes('spaghetti') || text.includes('mì')) return '🍝';
-  if (text.includes('tea') || text.includes('matcha')) return '🍵';
-  if (text.includes('pizza')) return '🍕';
-  return '🍱';
-}
+
 
 function menuCount(brand) {
   if (Array.isArray(brand.menu_items)) return brand.menu_items.length;
@@ -76,7 +71,7 @@ async function loadDashboard() {
   </div>`).join('') || '<div class="recent-empty">No brands in the catalog yet.</div>';
 
   $('#recent-items').innerHTML = state.items.slice(0, 3).map((item) => `<div class="recent-row">
-    <span class="food-thumb" aria-hidden="true">${foodEmoji(item.name)}</span><div class="recent-info"><b>${esc(item.name)}</b><small>${esc(item.brand?.name || 'Unassigned brand')}</small></div>
+    <span class="food-thumb" aria-hidden="true">${foodInitial(item.name)}</span><div class="recent-info"><b>${esc(item.name)}</b><small>${esc(item.brand?.name || 'Unassigned brand')}</small></div>
     <div class="recent-meta"><span class="recent-price">${money(item.price)}</span>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</div>
   </div>`).join('') || '<div class="recent-empty">No menu items in the catalog yet.</div>';
 }
@@ -124,7 +119,7 @@ function renderItemTable() {
   $('#item-result-count').innerHTML = `<b>${visible.length}</b> ${visible.length === 1 ? 'item' : 'items'}`;
   body.innerHTML = visible.map((item, index) => `<tr>
     <td>${index + 1}</td>
-    <td><div class="item-cell"><span class="food-thumb" aria-hidden="true">${foodEmoji(item.name)}</span><span class="item-cell-name"><b>${esc(item.name)}</b><small>Item ID: ${esc(item.id)}</small></span></div></td>
+    <td><div class="item-cell"><span class="food-thumb" aria-hidden="true">${foodInitial(item.name)}</span><span class="item-cell-name"><b>${esc(item.name)}</b><small>Item ID: ${esc(item.id)}</small></span></div></td>
     <td><span class="brand-badge">${esc(item.brand?.name || state.brands.find((brand) => Number(brand.id) === Number(item.brand_id))?.name || '—')}</span></td>
     <td class="item-desc">${esc(item.description || '—')}</td>
     <td class="price-cell">${money(item.price)}</td>
@@ -268,6 +263,24 @@ function resetItemForm() {
   $('#item-save').textContent = '✓ Save Item';
   $('#item-description-count').textContent = '0 / 500';
   setFormMessage('#item-form-message');
+  closeItemForm();
+}
+
+function openItemForm() {
+  const card = $('#item-editor-card');
+  card.hidden = false;
+  $('.items-layout').classList.remove('form-closed');
+  $('#focus-item-form').setAttribute('aria-expanded', 'true');
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  $('#item-name').focus({ preventScroll: true });
+}
+
+function closeItemForm() {
+  const card = $('#item-editor-card');
+  if (!card) return;
+  card.hidden = true;
+  $('.items-layout')?.classList.add('form-closed');
+  $('#focus-item-form')?.setAttribute('aria-expanded', 'false');
 }
 
 function editItem(item) {
@@ -282,8 +295,7 @@ function editItem(item) {
   $('#item-save').textContent = '✓ Save Changes';
   $('#item-description-count').textContent = `${form.elements.description.value.length} / 500`;
   setFormMessage('#item-form-message', `Editing ${item.name}`);
-  $('#item-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  form.elements.name.focus({ preventScroll: true });
+  openItemForm();
 }
 
 async function saveItem(event) {
@@ -401,5 +413,12 @@ if (path === '/admin/catalog') {
   $('#item-editor').addEventListener('submit', saveItem);
   $('#item-editor').elements.description.addEventListener('input', (event) => { $('#item-description-count').textContent = `${event.target.value.length} / 500`; });
   $('#item-cancel').addEventListener('click', resetItemForm);
-  $('#focus-item-form').addEventListener('click', () => { $('#item-editor-card').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('#item-name').focus({ preventScroll: true }); });
+  $('#focus-item-form').addEventListener('click', () => {
+    if ($('#item-editor-card').hidden) {
+      resetItemForm();
+      openItemForm();
+    } else {
+      closeItemForm();
+    }
+  });
 }

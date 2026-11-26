@@ -2,7 +2,7 @@
 @section('title', 'Brand Details | SaigonBite')
 @section('content')
 <div class="breadcrumb-line"><a href="{{ route('admin.dashboard') }}">⌂ <span>Home</span></a><i>›</i><a href="{{ route('admin.brands.index') }}">Brand &amp; Menu</a><i>›</i><a href="{{ route('admin.brands.index') }}">Brand Management</a><i>›</i><b id="brand-breadcrumb">{{ request()->routeIs('admin.brands.edit') ? 'Edit Brand' : 'Create Brand' }}</b></div>
-<div class="page-title-row form-title-row"><div><h1 id="brand-page-title">{{ request()->routeIs('admin.brands.edit') ? 'Edit Brand' : 'Create Brand' }}</h1><p>{{ request()->routeIs('admin.brands.edit') ? 'Update the brand information and save the changes.' : 'Create a brand and make it available to add menu items.' }}</p></div></div>
+<div class="page-title-row form-title-row"><div><h1 id="brand-page-title">{{ request()->routeIs('admin.brands.edit') ? 'Edit Brand' : 'Create Brand' }}</h1><p>{{ request()->routeIs('admin.brands.edit') ? 'Update the brand information and save the changes.' : 'Create a brand and make it available to add menu items.' }}</p></div><a class="button secondary back-button" href="{{ route('admin.brands.index') }}"><span aria-hidden="true">&larr;</span> Back</a></div>
 <div class="brand-form-layout" data-screen="brand-form" data-brand-id="{{ request()->route('brand') ?? '' }}">
   <section class="content-card brand-form-card">
     <form id="brand-editor" novalidate>
