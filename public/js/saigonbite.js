@@ -2,7 +2,7 @@ import { get, post } from '/assets/js/api.js';
 
 (() => {
   const KEY = 'saigonbite_order';
-  const defaults = { hubId: null, brandId: null, cart: {}, address: {}, payment: 'COD', orderId: null };
+  const defaults = { hubId: null, brandId: null, cart: {}, address: {}, payment: 'COD', orderId: null, idempotencyKey: null };
   let state;
   try { state = { ...defaults, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; }
   catch { state = { ...defaults }; }
@@ -60,7 +60,7 @@ import { get, post } from '/assets/js/api.js';
   async function loadMenu() {
     if (!state.hubId || !state.brandId) { location.replace('/order'); return; }
     const [hub, brand, items] = await Promise.all([
-      get(`/hubs/${state.hubId}`), get(`/brands/${state.brandId}`),
+      get(`/hubs/${state.hubId}`), get(`/brands/${state.brandId}?hub_id=${state.hubId}`),
       get(`/menu-items?hub_id=${state.hubId}&brand_id=${state.brandId}`),
     ]);
     $('menu-brand').textContent = `${brand.name} / ${hub.name}`;
@@ -116,27 +116,34 @@ import { get, post } from '/assets/js/api.js';
 
   async function loadReview() {
     if (!state.hubId || !state.brandId || !state.address?.customer_name) { location.replace('/order/checkout'); return; }
-    const [hub, brand, items] = await Promise.all([get(`/hubs/${state.hubId}`), get(`/brands/${state.brandId}`), get(`/menu-items?hub_id=${state.hubId}&brand_id=${state.brandId}`)]);
+    const [hub, brand, items] = await Promise.all([get(`/hubs/${state.hubId}`), get(`/brands/${state.brandId}?hub_id=${state.hubId}`), get(`/menu-items?hub_id=${state.hubId}&brand_id=${state.brandId}`)]);
     const selected = items.filter((item) => Number(state.cart[item.id]) > 0 && item.is_available);
     const subtotal = selected.reduce((sum, item) => sum + Number(item.price) * Number(state.cart[item.id]), 0);
     $('review-hub').textContent = hub.name; $('review-hub-address').textContent = hub.address; $('review-brand').textContent = brand.name;
     $('review-items').innerHTML = selected.map((item) => `<div class="review-line"><div><b>${esc(item.name)}</b><p>${esc(item.description || '')}</p><small>Qty ×${state.cart[item.id]} · ${money(item.price)} each</small></div><b>${money(item.price * state.cart[item.id])}</b></div>`).join('');
     $('review-dish-count').textContent = `1 brand · ${selected.length} dishes · ${selected.reduce((n, item) => n + Number(state.cart[item.id]), 0)} items`;
-    $('review-subtotal').textContent = money(subtotal); $('review-total').textContent = money(subtotal + 15000);
+    $('review-subtotal').textContent = money(subtotal);
     const address = state.address;
     $('review-address').textContent = `${address.customer_name} · ${address.customer_phone}\n${address.street}, ${address.district}, ${address.city}`;
     $('review-note').textContent = address.notes || '';
-    $('review-payment').textContent = state.payment === 'CARD' ? 'Credit / Debit card' : 'Cash on delivery';
+    $('review-payment').textContent = 'Cash on delivery';
+    state.payment = 'COD';
+    const orderPayload = {
+      hub_id: state.hubId, brand_id: state.brandId,
+      customer_name: address.customer_name, customer_phone: address.customer_phone,
+      delivery_address: [address.street, address.district, address.city].filter(Boolean).join(', '),
+      payment_method: 'COD', notes: address.notes || null,
+      items: selected.map((item) => ({ menu_item_id: item.id, quantity: Number(state.cart[item.id]) })),
+    };
+    const pricing = await post('/orders/preview', orderPayload);
+    $('review-subtotal').textContent = money(pricing.subtotal);
+    $('review-delivery-fee').textContent = money(pricing.delivery_fee);
+    $('review-surcharge').textContent = money(pricing.surcharge);
+    $('review-discount').textContent = Number(pricing.discount_amount) > 0 ? `-${money(pricing.discount_amount)}` : money(0);
+    $('review-total').textContent = money(pricing.total_amount);
     $('confirm-order').onclick = async () => {
-      const payload = {
-        hub_id: state.hubId, brand_id: state.brandId,
-        customer_name: address.customer_name, customer_phone: address.customer_phone,
-        delivery_address: [address.street, address.district, address.city].filter(Boolean).join(', '),
-        payment_method: state.payment,
-        notes: address.notes || null,
-        items: selected.map((item) => ({ menu_item_id: item.id, quantity: Number(state.cart[item.id]) })),
-      };
-      try { const order = await post('/orders', payload); state.orderId = order.id; save(); location.href = '/order/success'; }
+      state.idempotencyKey ||= (crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+      try { const order = await post('/orders', { ...orderPayload, idempotency_key: state.idempotencyKey }); state.orderId = order.id; save(); location.href = '/order/success'; }
       catch (error) { showError(error); }
     };
   }

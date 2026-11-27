@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Hub extends Model
 {
@@ -19,6 +20,12 @@ class Hub extends Model
     public function brands()
     {
         return $this->belongsToMany(Brand::class, 'hub_brands');
+    }
+
+    public function menuItems(): BelongsToMany
+    {
+        return $this->belongsToMany(MenuItem::class, 'hub_menu_items')
+            ->withPivot('is_available');
     }
 
     public function getCurrentLoadAttribute($value): int

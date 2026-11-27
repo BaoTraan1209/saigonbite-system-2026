@@ -27,11 +27,13 @@ class DeliveryController extends Controller
             'shipper_name' => 'sometimes|nullable|string|max:150',
             'shipper_phone' => 'sometimes|nullable|string|max:30',
             'cod_amount' => 'sometimes|nullable|numeric|min:0',
+            'cash_collected' => 'required_if:status,delivered|nullable|numeric|min:0',
             'failure_reason' => 'required_if:status,failed|nullable|string',
         ]);
 
         $delivery = DB::transaction(function () use ($delivery, $data) {
             $delivery = Delivery::whereKey($delivery->id)->lockForUpdate()->firstOrFail();
+            $order = $delivery->order()->lockForUpdate()->firstOrFail();
             $allowed = [
                 'waiting' => ['assigned', 'picked_up'],
                 'assigned' => ['picked_up'],
@@ -43,8 +45,15 @@ class DeliveryController extends Controller
                 ]);
             }
 
+            if ($data['status'] === 'delivered' && $order->payment_method === 'COD'
+                && (float) $data['cash_collected'] !== (float) $order->total_amount) {
+                throw ValidationException::withMessages([
+                    'cash_collected' => 'The collected COD amount must match the order total.',
+                ]);
+            }
+
             $updates = array_intersect_key($data, array_flip([
-                'status', 'shipper_name', 'shipper_phone', 'cod_amount', 'failure_reason',
+                'status', 'shipper_name', 'shipper_phone', 'cod_amount', 'cash_collected', 'failure_reason',
             ]));
             if ($data['status'] === 'picked_up') {
                 $updates['picked_up_at'] = now();
@@ -60,7 +69,11 @@ class DeliveryController extends Controller
                 default => null,
             };
             if ($orderStatus !== null) {
-                $delivery->order()->update(['status' => $orderStatus]);
+                $orderUpdates = ['status' => $orderStatus];
+                if ($data['status'] === 'delivered' && $order->payment_method === 'COD') {
+                    $orderUpdates['payment_status'] = 'paid';
+                }
+                $order->update($orderUpdates);
             }
 
             return $delivery;

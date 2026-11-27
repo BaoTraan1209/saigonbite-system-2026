@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\CatalogController;
+use App\Http\Controllers\Api\CustomerAddressController;
 use App\Http\Controllers\Api\DeliveryController;
 use App\Http\Controllers\Api\HubController;
 use App\Http\Controllers\Api\KitchenController;
@@ -39,6 +40,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     Route::middleware('role:customer')->group(function () {
+        Route::get('/customers/me/addresses', [CustomerAddressController::class, 'index']);
+        Route::post('/customers/me/addresses', [CustomerAddressController::class, 'store']);
+        Route::post('/orders/preview', [OrderController::class, 'preview']);
         Route::post('/orders', [OrderController::class, 'store']);
     });
 });

@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Hub;
-use App\Repositories\HubRepository;
+use App\Repositories\Contracts\HubRepositoryInterface;
 use App\Services\HubService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 
 class HubController extends Controller
 {
-    public function __construct(private HubRepository $repo, private HubService $service) {}
+    public function __construct(private HubRepositoryInterface $repo, private HubService $service) {}
 
     public function index(Request $request)
     {
@@ -25,7 +25,7 @@ class HubController extends Controller
 
     public function show(Hub $hub)
     {
-        return response()->json($hub->load('brands', 'orders'));
+        return response()->json($hub->load('brands'));
     }
 
     public function store(Request $request)
@@ -82,6 +82,7 @@ class HubController extends Controller
         DB::transaction(function () use ($hub, $data) {
             $hub = Hub::whereKey($hub->id)->lockForUpdate()->firstOrFail();
             $hub->brands()->sync($data['brand_ids']);
+            $this->repo->initializeMenuAvailability($hub, $data['brand_ids']);
         });
 
         return response()->json($hub->refresh()->load('brands'));

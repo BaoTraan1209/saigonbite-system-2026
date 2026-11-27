@@ -56,10 +56,13 @@ class DatabaseSeeder extends Seeder
             $hub->brands()->sync([$brand->id]);
 
             foreach ($restaurant['items'] as $item) {
-                MenuItem::updateOrCreate(
+                $menuItem = MenuItem::updateOrCreate(
                     ['brand_id' => $brand->id, 'name' => $item['name']],
                     [...$item, 'is_available' => true]
                 );
+                $menuItem->hubs()->syncWithoutDetaching([
+                    $hub->id => ['is_available' => true],
+                ]);
             }
         }
 

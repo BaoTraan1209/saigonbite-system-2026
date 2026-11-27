@@ -26,4 +26,9 @@ class Brand extends Model
             'hub_brands'
         );
     }
+
+    public function scopeActive($query)
+    {
+        return $query->where('status', 'active');
+    }
 }

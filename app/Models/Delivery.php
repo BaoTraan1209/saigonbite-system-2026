@@ -15,6 +15,7 @@ class Delivery extends Model
         'picked_up_at',
         'delivered_at',
         'cod_amount',
+        'cash_collected',
         'failure_reason',
     ];
 
@@ -22,6 +23,7 @@ class Delivery extends Model
         'picked_up_at' => 'datetime',
         'delivered_at' => 'datetime',
         'cod_amount' => 'decimal:2',
+        'cash_collected' => 'decimal:2',
     ];
 
     public function order(): BelongsTo

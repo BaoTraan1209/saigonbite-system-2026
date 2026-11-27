@@ -35,7 +35,7 @@ class LoginTest extends TestCase
 
         $customer = $this->makeUser('customer');
         $this->actingAs($customer);
-        $this->getJson('/api/brands')->assertOk();
+        $this->getJson('/api/brands')->assertUnprocessable()->assertJsonValidationErrors('hub_id');
         $this->postJson('/api/brands', ['name' => 'Customer should not create this'])
             ->assertForbidden();
     }

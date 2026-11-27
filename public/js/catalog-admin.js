@@ -72,7 +72,7 @@ async function loadDashboard() {
 
   $('#recent-items').innerHTML = state.items.slice(0, 3).map((item) => `<div class="recent-row">
     <span class="food-thumb" aria-hidden="true">${foodInitial(item.name)}</span><div class="recent-info"><b>${esc(item.name)}</b><small>${esc(item.brand?.name || 'Unassigned brand')}</small></div>
-    <div class="recent-meta"><span class="recent-price">${money(item.price)}</span>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</div>
+    <div class="recent-meta"><span class="recent-price">${money(item.price)}</span>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</div>
   </div>`).join('') || '<div class="recent-empty">No menu items in the catalog yet.</div>';
 }
 
@@ -112,8 +112,8 @@ function renderItemTable() {
   const visible = state.items.filter((item) => {
     const matchesSearch = !query || String(item.name).toLocaleLowerCase().includes(query) || String(item.description || '').toLocaleLowerCase().includes(query);
     const matchesBrand = !brandId || String(item.brand_id) === brandId;
-    const available = Boolean(item.is_available);
-    const matchesStatus = !status || (status === 'available' ? available : !available);
+    const active = Boolean(item.is_active);
+    const matchesStatus = !status || (status === 'active' ? active : !active);
     return matchesSearch && matchesBrand && matchesStatus;
   });
   $('#item-result-count').innerHTML = `<b>${visible.length}</b> ${visible.length === 1 ? 'item' : 'items'}`;
@@ -123,7 +123,7 @@ function renderItemTable() {
     <td><span class="brand-badge">${esc(item.brand?.name || state.brands.find((brand) => Number(brand.id) === Number(item.brand_id))?.name || '—')}</span></td>
     <td class="item-desc">${esc(item.description || '—')}</td>
     <td class="price-cell">${money(item.price)}</td>
-    <td>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</td>
+    <td>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</td>
     <td><div class="action-group"><button class="action-button icon-only" type="button" aria-label="View ${esc(item.name)}" title="View" data-item-action="view" data-id="${item.id}">${icons.eye}</button><button class="action-button icon-only edit" type="button" aria-label="Edit ${esc(item.name)}" title="Edit" data-item-action="edit" data-id="${item.id}">${icons.edit}</button><button class="action-button icon-only delete" type="button" aria-label="Delete ${esc(item.name)}" title="Delete" data-item-action="delete" data-id="${item.id}">${icons.trash}</button></div></td>
   </tr>`).join('') || showEmpty(7, 'No menu items found', 'Try another search or filter, or add a menu item.');
 }
@@ -258,7 +258,7 @@ function resetItemForm() {
   form.reset();
   form.elements.id.value = '';
   form.elements.price.value = '0';
-  form.elements.is_available.value = 'true';
+  form.elements.is_active.value = 'true';
   $('#item-form-title').textContent = 'Add Menu Item';
   $('#item-save').textContent = '✓ Save Item';
   $('#item-description-count').textContent = '0 / 500';
@@ -290,7 +290,7 @@ function editItem(item) {
   populateBrandSelects(item.brand_id);
   form.elements.description.value = item.description || '';
   form.elements.price.value = Number(item.price) || 0;
-  form.elements.is_available.value = item.is_available ? 'true' : 'false';
+  form.elements.is_active.value = item.is_active ? 'true' : 'false';
   $('#item-form-title').textContent = 'Edit Menu Item';
   $('#item-save').textContent = '✓ Save Changes';
   $('#item-description-count').textContent = `${form.elements.description.value.length} / 500`;
@@ -314,7 +314,7 @@ async function saveItem(event) {
     brand_id: Number(form.elements.brand_id.value),
     description: form.elements.description.value.trim() || null,
     price: Number(form.elements.price.value),
-    is_available: form.elements.is_available.value === 'true',
+    is_active: form.elements.is_active.value === 'true',
   };
   button.disabled = true;
   button.textContent = 'Saving…';
@@ -349,7 +349,7 @@ async function viewBrand(id) {
 
 function viewItem(item) {
   const brand = item.brand?.name || state.brands.find((entry) => Number(entry.id) === Number(item.brand_id))?.name || '—';
-  showModal(item.name, `<div class="detail-grid"><span>Brand</span><b>${esc(brand)}</b><span>Description</span><b>${esc(item.description || 'No description')}</b><span>Price</span><b>${money(item.price)}</b><span>Status</span><b>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</b></div>`);
+  showModal(item.name, `<div class="detail-grid"><span>Brand</span><b>${esc(brand)}</b><span>Description</span><b>${esc(item.description || 'No description')}</b><span>Price</span><b>${money(item.price)}</b><span>Catalog status</span><b>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</b></div>`);
 }
 
 async function brandAction(button) {
@@ -360,12 +360,12 @@ async function brandAction(button) {
     return;
   }
   if (button.dataset.brandAction === 'delete') {
-    if (!window.confirm(`Delete ${brand.name}? This will archive the brand so order history stays intact.`)) return;
+    if (!window.confirm(`Deactivate ${brand.name}? Existing order history will remain intact.`)) return;
     button.disabled = true;
     try {
       await del(`/brands/${encodeURIComponent(brand.id)}`);
       await loadBrands();
-      toast(`${brand.name} archived. Existing order history was preserved.`);
+      toast(`${brand.name} deactivated. Existing order history was preserved.`);
     } catch (error) { button.disabled = false; toast(error.message, true); }
   }
 }
@@ -377,12 +377,12 @@ async function itemAction(button) {
   if (action === 'view') { viewItem(item); return; }
   if (action === 'edit') { editItem(item); return; }
   if (action === 'delete') {
-    if (!window.confirm(`Delete ${item.name}? If confirmed, it will be marked unavailable and its order history will be preserved.`)) return;
+    if (!window.confirm(`Deactivate ${item.name} in the catalog? Existing order history will remain intact.`)) return;
     button.disabled = true;
     try {
       await del(`/menu-items/${encodeURIComponent(item.id)}`);
       await loadItems();
-      toast(`${item.name} is now unavailable.`);
+      toast(`${item.name} deactivated in the catalog.`);
     } catch (error) { button.disabled = false; toast(error.message, true); }
   }
 }

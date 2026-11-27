@@ -1,2 +1,4 @@
 <?php
-return [];
+return [
+    App\Providers\RepositoryServiceProvider::class,
+];

@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Models\Hub;
-use App\Repositories\HubRepository;
+use App\Repositories\Contracts\HubRepositoryInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class HubService
 {
-    public function __construct(private HubRepository $hubs) {}
+    public function __construct(private HubRepositoryInterface $hubs) {}
 
     public function create(array $data): Hub
     {
@@ -21,6 +21,7 @@ class HubService
             $hub = $this->hubs->create($data);
             if ($brandIds !== null) {
                 $hub->brands()->sync($brandIds);
+                $this->hubs->initializeMenuAvailability($hub, $brandIds);
             }
 
             return $hub->load('brands');
@@ -30,7 +31,7 @@ class HubService
     public function changeStatus(Hub $hub, string $status): Hub
     {
         return DB::transaction(function () use ($hub, $status) {
-            $hub = Hub::whereKey($hub->id)->lockForUpdate()->firstOrFail();
+            $hub = $this->hubs->lockForOrder($hub->id);
 
             if ($hub->status === 'archived') {
                 throw ValidationException::withMessages(['status' => 'Archived hubs cannot be changed.']);

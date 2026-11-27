@@ -3,8 +3,11 @@
 namespace App\Repositories;
 
 use App\Models\Hub;
+use App\Models\MenuItem;
+use App\Repositories\Contracts\HubRepositoryInterface;
+use Illuminate\Support\Facades\DB;
 
-class HubRepository
+class HubRepository implements HubRepositoryInterface
 {
     public function all(bool $availableOnly = false)
     {
@@ -39,5 +42,30 @@ class HubRepository
         $hub->update($data);
 
         return $hub->refresh();
+    }
+
+    public function lockForOrder(int $hubId): Hub
+    {
+        return Hub::whereKey($hubId)->lockForUpdate()->firstOrFail();
+    }
+
+    public function currentLoadForOrder(int $hubId): int
+    {
+        // A locking read sees the latest committed rows after waiting for the Hub lock.
+        return DB::table('orders')
+            ->where('hub_id', $hubId)
+            ->whereIn('status', ['submitted', 'accepted', 'preparing', 'ready', 'delivering'])
+            ->lockForUpdate()
+            ->get(['id'])
+            ->count();
+    }
+
+    public function initializeMenuAvailability(Hub $hub, array $brandIds): void
+    {
+        $itemIds = MenuItem::whereIn('brand_id', $brandIds)->pluck('id');
+        $pivot = $itemIds->mapWithKeys(fn ($itemId) => [$itemId => ['is_available' => false]])->all();
+        if ($pivot !== []) {
+            $hub->menuItems()->syncWithoutDetaching($pivot);
+        }
     }
 }

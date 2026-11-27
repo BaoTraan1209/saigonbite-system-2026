@@ -37,23 +37,47 @@ class CatalogManagementTest extends TestCase
             'name' => 'UC14 Test Item',
             'description' => 'Temporary menu item.',
             'price' => 42000,
-            'is_available' => true,
+            'is_active' => true,
         ])->assertCreated()->assertJsonPath('name', 'UC14 Test Item');
 
         $itemId = $itemResponse->json('id');
         $this->assertDatabaseHas('menu_items', ['id' => $itemId, 'brand_id' => $brandId]);
+        $this->postJson('/api/menu-items', [
+            'brand_id' => $brandId,
+            'name' => 'UC14 Test Item',
+            'price' => 42000,
+        ])->assertUnprocessable()->assertJsonValidationErrors('name');
         $this->getJson("/api/menu-items?brand_id={$brandId}")->assertOk()->assertJsonPath('0.id', $itemId);
         $this->putJson("/api/menu-items/{$itemId}", [
             'name' => 'UC14 Updated Item',
             'description' => 'Updated item details.',
             'price' => 45000,
-            'is_available' => false,
-        ])->assertOk()->assertJsonPath('name', 'UC14 Updated Item')->assertJsonPath('is_available', false);
+            'is_active' => false,
+        ])->assertOk()->assertJsonPath('name', 'UC14 Updated Item')->assertJsonPath('is_active', false);
 
-        $this->deleteJson("/api/menu-items/{$itemId}")->assertOk()->assertJsonPath('is_available', false);
-        $this->deleteJson("/api/brands/{$brandId}")->assertOk()->assertJsonPath('status', 'archived');
-        $this->assertDatabaseHas('brands', ['id' => $brandId, 'status' => 'archived']);
+        $this->deleteJson("/api/menu-items/{$itemId}")->assertOk()->assertJsonPath('is_active', false);
+        $this->deleteJson("/api/brands/{$brandId}")->assertOk()->assertJsonPath('status', 'inactive');
+        $this->assertDatabaseHas('brands', ['id' => $brandId, 'status' => 'inactive']);
         $this->assertDatabaseHas('menu_items', ['id' => $itemId]);
+    }
+
+    public function test_customer_cannot_manage_brands_or_menu_items(): void
+    {
+        $customer = User::create([
+            'name' => 'Catalog Customer',
+            'username' => 'catalog_customer',
+            'email' => 'catalog-customer@example.test',
+            'password' => 'test-password',
+            'role' => 'customer',
+        ]);
+        $this->actingAs($customer);
+
+        $this->postJson('/api/brands', ['name' => 'Forbidden Brand'])->assertForbidden();
+        $this->postJson('/api/menu-items', [
+            'brand_id' => 1,
+            'name' => 'Forbidden Item',
+            'price' => 100,
+        ])->assertForbidden();
     }
 
     public function test_catalog_endpoints_return_real_database_relations(): void

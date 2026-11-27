@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Brand;
+use App\Models\CustomerAddress;
 use App\Models\Delivery;
 use App\Models\Hub;
 use App\Models\MenuItem;
@@ -16,6 +17,27 @@ class OrderWorkflowTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_order_review_preview_returns_server_calculated_totals_without_creating_order(): void
+    {
+        $this->signInAs('customer');
+        [$hub, $brand, $item] = $this->createCatalog();
+
+        $this->postJson('/api/orders/preview', [
+            'hub_id' => $hub->id,
+            'brand_id' => $brand->id,
+            'customer_name' => 'Nguyen Van A',
+            'customer_phone' => '0900000000',
+            'delivery_address' => 'District 1',
+            'payment_method' => 'COD',
+            'items' => [['menu_item_id' => $item->id, 'quantity' => 2]],
+        ])->assertOk()
+            ->assertJsonPath('subtotal', '130000.00')
+            ->assertJsonPath('delivery_fee', '15000.00')
+            ->assertJsonPath('total_amount', '145000.00');
+
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_order_is_priced_and_completed_through_kitchen_and_delivery(): void
     {
         $this->signInAs('customer');
@@ -28,6 +50,7 @@ class OrderWorkflowTest extends TestCase
             'customer_phone' => '0900000000',
             'delivery_address' => 'District 1',
             'payment_method' => 'CASH_ON_DELIVERY',
+            'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f83',
             'items' => [
                 ['menu_item_id' => $item->id, 'quantity' => 2],
             ],
@@ -64,7 +87,9 @@ class OrderWorkflowTest extends TestCase
         ])->assertOk()->assertJsonPath('order.status', 'delivering');
         $this->patchJson("/api/deliveries/{$deliveryId}/status", [
             'status' => 'delivered',
+            'cash_collected' => 145000,
         ])->assertOk()->assertJsonPath('order.status', 'completed');
+        $this->assertDatabaseHas('orders', ['id' => $orderId, 'payment_status' => 'paid']);
     }
 
     public function test_order_rejects_inactive_hubs_and_unavailable_items(): void
@@ -79,7 +104,8 @@ class OrderWorkflowTest extends TestCase
             'customer_name' => 'Nguyen Van A',
             'customer_phone' => '0900000000',
             'delivery_address' => 'District 1',
-            'payment_method' => 'CARD',
+            'payment_method' => 'COD',
+            'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f84',
             'items' => [
                 ['menu_item_id' => $item->id, 'quantity' => 1],
             ],
@@ -90,11 +116,114 @@ class OrderWorkflowTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
 
         $hub->update(['status' => 'active']);
-        $item->update(['is_available' => false]);
+        $hub->menuItems()->updateExistingPivot($item->id, ['is_available' => false]);
         $this->postJson('/api/orders', $payload)
             ->assertUnprocessable()
             ->assertJsonValidationErrors('items');
         $this->assertDatabaseCount('orders', 0);
+    }
+
+    public function test_order_uses_server_prices_and_idempotency_key_and_only_allows_cod(): void
+    {
+        $this->signInAs('customer');
+        [$hub, $brand, $item] = $this->createCatalog();
+        $payload = [
+            'hub_id' => $hub->id,
+            'brand_id' => $brand->id,
+            'customer_name' => 'Nguyen Van A',
+            'customer_phone' => '0900000000',
+            'delivery_address' => 'District 1',
+            'payment_method' => 'COD',
+            'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f85',
+            'subtotal' => 1,
+            'total_amount' => 1,
+            'items' => [['menu_item_id' => $item->id, 'quantity' => 1, 'unit_price' => 1]],
+        ];
+
+        $first = $this->postJson('/api/orders', $payload)->assertCreated();
+        $second = $this->postJson('/api/orders', $payload)->assertCreated();
+        $this->assertSame($first->json('id'), $second->json('id'));
+        $this->assertDatabaseCount('orders', 1);
+        $this->assertDatabaseHas('orders', ['id' => $first->json('id'), 'subtotal' => 65000, 'payment_status' => 'unpaid']);
+        $item->update(['price' => 99000]);
+        $this->assertDatabaseHas('order_items', [
+            'order_id' => $first->json('id'),
+            'unit_price' => 65000,
+            'line_total' => 65000,
+        ]);
+
+        $payload['idempotency_key'] = '620c9a0e-a45f-4a03-9292-b2c9fc008f86';
+        $payload['payment_method'] = 'CARD';
+        $this->postJson('/api/orders', $payload)->assertUnprocessable()->assertJsonValidationErrors('payment_method');
+        $this->assertDatabaseCount('orders', 1);
+    }
+
+    public function test_saved_address_is_owned_by_customer_and_order_keeps_address_snapshot(): void
+    {
+        $customer = $this->signInAs('customer');
+        [$hub, $brand, $item] = $this->createCatalog();
+        $address = $this->postJson('/api/customers/me/addresses', [
+            'recipient_name' => 'Nguyen Van A',
+            'phone' => '0900000000',
+            'street' => '1 Nguyen Hue',
+            'district' => 'District 1',
+            'city' => 'Ho Chi Minh City',
+            'is_default' => true,
+        ])->assertCreated()->json();
+
+        $order = $this->postJson('/api/orders', [
+            'hub_id' => $hub->id,
+            'brand_id' => $brand->id,
+            'address_id' => $address['id'],
+            'payment_method' => 'COD',
+            'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f87',
+            'items' => [['menu_item_id' => $item->id, 'quantity' => 1]],
+        ])->assertCreated()->assertJsonPath('customer_address_id', $address['id']);
+
+        CustomerAddress::findOrFail($address['id'])->update(['street' => '99 Changed Street']);
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->json('id'),
+            'delivery_address' => '1 Nguyen Hue, District 1, Ho Chi Minh City',
+        ]);
+
+        $other = User::create([
+            'name' => 'Other Customer', 'username' => 'other_address_owner',
+            'email' => 'other-address-owner@example.test', 'password' => 'test-password', 'role' => 'customer',
+        ]);
+        $otherAddress = CustomerAddress::create([
+            'user_id' => $other->id, 'recipient_name' => 'Other', 'phone' => '0900000001',
+            'street' => 'Some street', 'district' => 'District 1', 'city' => 'Ho Chi Minh City',
+        ]);
+        $this->postJson('/api/orders', [
+            'hub_id' => $hub->id, 'brand_id' => $brand->id, 'address_id' => $otherAddress->id,
+            'payment_method' => 'COD', 'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f88',
+            'items' => [['menu_item_id' => $item->id, 'quantity' => 1]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('address_id');
+    }
+
+    public function test_menu_availability_is_independent_for_each_hub(): void
+    {
+        $this->signInAs('customer');
+        [$hub, $brand, $item] = $this->createCatalog();
+        $secondHub = Hub::create([
+            'name' => 'Second Hub', 'address' => 'District 2', 'capacity' => 3, 'status' => 'active',
+        ]);
+        $secondHub->brands()->attach($brand);
+
+        $this->getJson("/api/menu-items?hub_id={$hub->id}&brand_id={$brand->id}")
+            ->assertOk()->assertJsonPath('0.is_available', true);
+        $this->getJson("/api/menu-items?hub_id={$secondHub->id}&brand_id={$brand->id}")
+            ->assertOk()->assertJsonCount(0);
+        $this->postJson('/api/orders', [
+            'hub_id' => $secondHub->id,
+            'brand_id' => $brand->id,
+            'customer_name' => 'Nguyen Van A',
+            'customer_phone' => '0900000000',
+            'delivery_address' => 'District 2',
+            'payment_method' => 'COD',
+            'idempotency_key' => '620c9a0e-a45f-4a03-9292-b2c9fc008f89',
+            'items' => [['menu_item_id' => $item->id, 'quantity' => 1]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('items');
     }
 
     public function test_invalid_workflow_transitions_are_rejected(): void
@@ -147,9 +276,8 @@ class OrderWorkflowTest extends TestCase
             'line_total' => 65000,
         ]);
         $this->deleteJson("/api/menu-items/{$item->id}")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('menu_item');
-        $this->assertDatabaseHas('menu_items', ['id' => $item->id]);
+            ->assertOk()->assertJsonPath('is_active', false);
+        $this->assertDatabaseHas('menu_items', ['id' => $item->id, 'is_active' => false]);
 
         $delivery = Delivery::create([
             'order_id' => $order->id,
@@ -196,6 +324,7 @@ class OrderWorkflowTest extends TestCase
             'price' => 65000,
             'is_available' => true,
         ]);
+        $hub->menuItems()->attach($item, ['is_available' => true]);
         $this->getJson("/api/brands?hub_id={$hub->id}")
             ->assertOk()->assertJsonPath('0.id', $brand->id);
         $this->getJson("/api/menu-items?hub_id={$hub->id}&brand_id={$brand->id}")
@@ -247,20 +376,23 @@ class OrderWorkflowTest extends TestCase
             'price' => 65000,
             'is_available' => true,
         ]);
+        $hub->menuItems()->attach($item, ['is_available' => true]);
 
         return [$hub, $brand, $item];
     }
 
-    private function signInAs(string $role): void
+    private function signInAs(string $role): User
     {
         static $sequence = 0;
         $sequence++;
-        $this->actingAs(User::create([
+        $user = User::create([
             'name' => ucfirst($role).' Test',
             'username' => $role.'_workflow_'.$sequence,
             'email' => $role.'_workflow_'.$sequence.'@example.test',
             'password' => 'test-password',
             'role' => $role,
-        ]));
+        ]);
+        $this->actingAs($user);
+        return $user;
     }
 }
