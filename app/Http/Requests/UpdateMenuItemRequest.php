@@ -21,7 +21,7 @@ class UpdateMenuItemRequest extends FormRequest
             'description' => ['sometimes', 'nullable', 'string', 'max:500'],
             'price' => ['sometimes', 'required', 'numeric', 'gt:0', 'max:9999999999.99'],
             'is_active' => ['sometimes', 'boolean'],
-            'is_available' => ['prohibited'],
+            'is_available' => ['sometimes', 'boolean'],
         ];
     }
 }

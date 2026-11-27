@@ -32,10 +32,10 @@ Brand create:
 { "name": "Postman Brand", "description": "UC14 check", "status": "active" }
 ```
 
-Menu item create:
+Menu item create (Admin chooses whether it can be ordered):
 
 ```json
-{ "brand_id": "{{brandId}}", "name": "Postman Item", "description": "UC14 check", "price": 42000, "is_active": true }
+{ "brand_id": "{{brandId}}", "name": "Postman Item", "description": "UC14 check", "price": 42000, "is_active": true, "is_available": true }
 ```
 
 ## UC3 – Place an Order
@@ -75,7 +75,7 @@ Menu item create:
 | 3 | GET `/api/brands/{{brandId}}` | Admin views brand detail | 200 with related menu_items | Read only |
 | 4 | PUT `/api/brands/{{brandId}}` | Change name/description/status | 200 | Same brand row updated |
 | 5 | DELETE `/api/brands/{{brandId}}` | Deactivate a brand used by orders | 200; status `inactive` | Brand row remains; order history is retained |
-| 6 | POST `/api/menu-items` | Valid menu item body | 201 | New menu_items row; hub_menu_items rows start unavailable pending UC9 |
+| 6 | POST `/api/menu-items` | Valid menu item body with `is_available: true` or `false` | 201 | New menu_items row; selected Availability is copied to all existing Hubs assigned to the Brand |
 | 7 | GET `/api/menu-items` | Admin lists menu items | 200 with brand and `is_active` | Read only |
 | 8 | GET `/api/brands/{{brandId}}/items` | Admin lists items for a brand | 200 | Read only |
 | 9 | PUT `/api/menu-items/{{itemId}}` | Change name, description, price or `is_active` | 200 | Same item row updated; order item snapshots unchanged |
@@ -84,12 +84,12 @@ Menu item create:
 | 12 | POST `/api/menu-items` | Reuse item name within same Brand | 422 `name` | No duplicate row |
 | 13 | POST `/api/menu-items` | Use missing `brand_id` | 422 `brand_id` | No item row |
 | 14 | POST `/api/brands` or `/api/menu-items` | Call as Customer | 403 | No rows |
-| 15 | PUT `/api/menu-items/{{itemId}}` | Send `is_available` in UC14 body | 422 `is_available` | Hub availability unchanged; it belongs to UC9 |
+| 15 | PUT `/api/menu-items/{{itemId}}` | Set `is_available` to `true` or `false` | 200; returned status reflects Admin choice | `menu_items.is_available` and all existing `hub_menu_items` rows for this item are updated |
 | 16 | PUT `/api/menu-items/{{itemId}}` | Change menu item price after an order exists | 200 | Menu current price changes; order_items.unit_price/line_total retain prior snapshot |
 
 ## Known dependencies / limits
 
 - Voucher validation is read-only and external per Assumption A-13, but the repository has no provider URL, interface contract, credentials, or test fixture. Voucher acceptance/expiry tests need that integration.
 - Proposal Assumption A-02 leaves maximum delivery distance and delivery-fee rules pending. `SAIGONBITE_DELIVERY_FEE` and `SAIGONBITE_SURCHARGE` preserve the current local behavior as configurable values; they are not a confirmed distance policy. No coordinates or user-supplied distance are trusted.
-- Hub-specific availability is persisted in `hub_menu_items`; the UC9 management endpoint/UI is outside the two assigned use cases. Existing availability is copied during migration. Newly created items need UC9 availability setup before customers can order them.
+- Admin can set item availability in UC14. The chosen status is copied to every Hub currently assigned to the item's Brand; customer catalog and order validation use that Hub-specific row. New Hub assignments inherit the item's Admin-selected status.
 - Payment is COD-only in the current implementation, although Proposal FR5 also mentions online payment. No gateway or card fields are added.

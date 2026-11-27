@@ -19,11 +19,12 @@ class CatalogRepository implements CatalogRepositoryInterface
     {
         return Brand::with(['menuItems' => fn ($items) => $items
             ->where('menu_items.is_active', true)
-            ->whereHas('hubs', fn ($hubs) => $hubs
-                ->where('hubs.id', $hubId)
-                ->where('hub_menu_items.is_available', true))])
+            ->whereHas('hubs', fn ($hubs) => $hubs->where('hubs.id', $hubId))])
             ->where('status', 'active')
             ->whereHas('hubs', fn ($query) => $query->where('hubs.id', $hubId))
+            ->whereHas('menuItems', fn ($items) => $items
+                ->where('menu_items.is_active', true)
+                ->whereHas('hubs', fn ($hubs) => $hubs->where('hubs.id', $hubId)))
             ->latest()
             ->get();
     }
@@ -34,6 +35,7 @@ class CatalogRepository implements CatalogRepositoryInterface
             ->when($brandId, fn ($items) => $items->where('brand_id', $brandId))
             ->when($activeOnly, fn ($items) => $items->where('is_active', true))
             ->when($hubId, fn ($items) => $items->whereHas('brand.hubs', fn ($hubs) => $hubs->where('hubs.id', $hubId)))
+            ->when($hubId && $activeOnly, fn ($items) => $items->whereHas('hubs', fn ($hubs) => $hubs->where('hubs.id', $hubId)))
             ->when($hubId && $availableAtHubOnly, fn ($items) => $items->whereHas('hubs', fn ($hubs) => $hubs
                 ->where('hubs.id', $hubId)->where('hub_menu_items.is_available', true)))
             ->when($hubId, fn ($items) => $items->with(['hubs' => fn ($hubs) => $hubs->where('hubs.id', $hubId)]))
@@ -79,7 +81,7 @@ class CatalogRepository implements CatalogRepositoryInterface
             $item = MenuItem::create($data);
             $hubIds = DB::table('hub_brands')->where('brand_id', $item->brand_id)->pluck('hub_id');
             foreach ($hubIds as $hubId) {
-                $item->hubs()->syncWithoutDetaching([$hubId => ['is_available' => false]]);
+                $item->hubs()->syncWithoutDetaching([$hubId => ['is_available' => (bool) $item->is_available]]);
             }
 
             return $item->load('brand');
@@ -88,8 +90,16 @@ class CatalogRepository implements CatalogRepositoryInterface
 
     public function updateItem(MenuItem $item, array $data): MenuItem
     {
-        $item->update($data);
-        return $item->refresh()->load('brand');
+        return DB::transaction(function () use ($item, $data): MenuItem {
+            $item->update($data);
+            if (array_key_exists('is_available', $data)) {
+                DB::table('hub_menu_items')
+                    ->where('menu_item_id', $item->id)
+                    ->update(['is_available' => (bool) $data['is_available']]);
+            }
+
+            return $item->refresh()->load('brand');
+        });
     }
 
     public function deactivateItem(MenuItem $item): MenuItem

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Brand;
+use App\Models\Hub;
 use App\Models\MenuItem;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,6 +79,67 @@ class CatalogManagementTest extends TestCase
             'name' => 'Forbidden Item',
             'price' => 100,
         ])->assertForbidden();
+    }
+
+    public function test_admin_controls_item_availability_and_customers_receive_the_selected_status(): void
+    {
+        $this->signInAsAdmin();
+        $brand = Brand::create(['name' => 'New Menu Brand', 'status' => 'active']);
+        $hub = Hub::create([
+            'name' => 'New Menu Hub',
+            'address' => 'District 1',
+            'capacity' => 10,
+            'status' => 'active',
+        ]);
+        $hub->brands()->attach($brand);
+
+        $item = $this->postJson('/api/menu-items', [
+            'brand_id' => $brand->id,
+            'name' => 'New Admin Item',
+            'description' => 'Visible while awaiting Hub availability.',
+            'price' => 35000,
+            'is_active' => true,
+            'is_available' => false,
+        ])->assertCreated()->json();
+
+        $this->assertDatabaseHas('hub_menu_items', [
+            'hub_id' => $hub->id,
+            'menu_item_id' => $item['id'],
+            'is_available' => false,
+        ]);
+
+        $customer = User::create([
+            'name' => 'Menu Customer',
+            'username' => 'menu_customer',
+            'email' => 'menu-customer@example.test',
+            'password' => 'test-password',
+            'role' => 'customer',
+        ]);
+        $this->actingAs($customer);
+
+        $this->getJson("/api/brands?hub_id={$hub->id}")
+            ->assertOk()
+            ->assertJsonFragment(['id' => $brand->id]);
+        $this->getJson("/api/menu-items?hub_id={$hub->id}&brand_id={$brand->id}")
+            ->assertOk()
+            ->assertJsonCount(1)
+            ->assertJsonPath('0.id', $item['id'])
+            ->assertJsonPath('0.is_available', false);
+
+        $this->actingAs(User::where('role', 'admin')->firstOrFail());
+        $this->putJson("/api/menu-items/{$item['id']}", ['is_available' => true])
+            ->assertOk()
+            ->assertJsonPath('is_available', true);
+        $this->assertDatabaseHas('hub_menu_items', [
+            'hub_id' => $hub->id,
+            'menu_item_id' => $item['id'],
+            'is_available' => true,
+        ]);
+
+        $this->actingAs($customer);
+        $this->getJson("/api/menu-items?hub_id={$hub->id}&brand_id={$brand->id}")
+            ->assertOk()
+            ->assertJsonPath('0.is_available', true);
     }
 
     public function test_catalog_endpoints_return_real_database_relations(): void

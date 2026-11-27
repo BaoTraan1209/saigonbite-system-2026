@@ -124,8 +124,9 @@ function renderItemTable() {
     <td class="item-desc">${esc(item.description || '—')}</td>
     <td class="price-cell">${money(item.price)}</td>
     <td>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</td>
+    <td>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</td>
     <td><div class="action-group"><button class="action-button icon-only" type="button" aria-label="View ${esc(item.name)}" title="View" data-item-action="view" data-id="${item.id}">${icons.eye}</button><button class="action-button icon-only edit" type="button" aria-label="Edit ${esc(item.name)}" title="Edit" data-item-action="edit" data-id="${item.id}">${icons.edit}</button><button class="action-button icon-only delete" type="button" aria-label="Delete ${esc(item.name)}" title="Delete" data-item-action="delete" data-id="${item.id}">${icons.trash}</button></div></td>
-  </tr>`).join('') || showEmpty(7, 'No menu items found', 'Try another search or filter, or add a menu item.');
+  </tr>`).join('') || showEmpty(8, 'No menu items found', 'Try another search or filter, or add a menu item.');
 }
 
 function populateBrandSelects(selectedId = '') {
@@ -143,7 +144,7 @@ function populateBrandSelects(selectedId = '') {
 }
 
 async function loadItems() {
-  $('#item-table-body').innerHTML = '<tr><td colspan="7" class="loading-row">Loading menu items…</td></tr>';
+  $('#item-table-body').innerHTML = '<tr><td colspan="8" class="loading-row">Loading menu items…</td></tr>';
   await fetchCatalog();
   populateBrandSelects();
   renderItemTable();
@@ -259,6 +260,7 @@ function resetItemForm() {
   form.elements.id.value = '';
   form.elements.price.value = '0';
   form.elements.is_active.value = 'true';
+  form.elements.is_available.value = 'true';
   $('#item-form-title').textContent = 'Add Menu Item';
   $('#item-save').textContent = '✓ Save Item';
   $('#item-description-count').textContent = '0 / 500';
@@ -291,6 +293,7 @@ function editItem(item) {
   form.elements.description.value = item.description || '';
   form.elements.price.value = Number(item.price) || 0;
   form.elements.is_active.value = item.is_active ? 'true' : 'false';
+  form.elements.is_available.value = item.is_available ? 'true' : 'false';
   $('#item-form-title').textContent = 'Edit Menu Item';
   $('#item-save').textContent = '✓ Save Changes';
   $('#item-description-count').textContent = `${form.elements.description.value.length} / 500`;
@@ -315,6 +318,7 @@ async function saveItem(event) {
     description: form.elements.description.value.trim() || null,
     price: Number(form.elements.price.value),
     is_active: form.elements.is_active.value === 'true',
+    is_available: form.elements.is_available.value === 'true',
   };
   button.disabled = true;
   button.textContent = 'Saving…';
@@ -349,7 +353,7 @@ async function viewBrand(id) {
 
 function viewItem(item) {
   const brand = item.brand?.name || state.brands.find((entry) => Number(entry.id) === Number(item.brand_id))?.name || '—';
-  showModal(item.name, `<div class="detail-grid"><span>Brand</span><b>${esc(brand)}</b><span>Description</span><b>${esc(item.description || 'No description')}</b><span>Price</span><b>${money(item.price)}</b><span>Catalog status</span><b>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</b></div>`);
+  showModal(item.name, `<div class="detail-grid"><span>Brand</span><b>${esc(brand)}</b><span>Description</span><b>${esc(item.description || 'No description')}</b><span>Price</span><b>${money(item.price)}</b><span>Catalog status</span><b>${statusPill(item.is_active ? 'Active' : 'Inactive', item.is_active ? 'active' : 'inactive')}</b><span>Availability</span><b>${statusPill(item.is_available ? 'Available' : 'Unavailable', item.is_available ? 'available' : 'unavailable')}</b></div>`);
 }
 
 async function brandAction(button) {

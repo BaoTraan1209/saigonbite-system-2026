@@ -62,8 +62,10 @@ class HubRepository implements HubRepositoryInterface
 
     public function initializeMenuAvailability(Hub $hub, array $brandIds): void
     {
-        $itemIds = MenuItem::whereIn('brand_id', $brandIds)->pluck('id');
-        $pivot = $itemIds->mapWithKeys(fn ($itemId) => [$itemId => ['is_available' => false]])->all();
+        $items = MenuItem::whereIn('brand_id', $brandIds)->get(['id', 'is_available']);
+        $pivot = $items->mapWithKeys(fn (MenuItem $item) => [
+            $item->id => ['is_available' => (bool) $item->is_available],
+        ])->all();
         if ($pivot !== []) {
             $hub->menuItems()->syncWithoutDetaching($pivot);
         }

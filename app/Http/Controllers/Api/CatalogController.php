@@ -42,7 +42,7 @@ class CatalogController extends Controller
             if ($brand->status !== 'active' || ! $brand->hubs()->whereKey($hubId)->exists()) {
                 abort(404);
             }
-            $brand->setRelation('menuItems', $this->repo->items($brand->id, $hubId, true, true));
+            $brand->setRelation('menuItems', $this->repo->items($brand->id, $hubId, true));
         } else {
             $brand->load('menuItems');
         }
@@ -73,7 +73,7 @@ class CatalogController extends Controller
                 abort(404);
             }
 
-            return response()->json($this->repo->items($brand->id, $hubId, true, true));
+            return response()->json($this->repo->items($brand->id, $hubId, true));
         }
 
         return response()->json($brand->menuItems()->latest()->get());
@@ -94,7 +94,7 @@ class CatalogController extends Controller
             isset($filters['brand_id']) ? (int) $filters['brand_id'] : null,
             isset($filters['hub_id']) ? (int) $filters['hub_id'] : null,
             $customer,
-            $customer
+            false
         ));
     }
 

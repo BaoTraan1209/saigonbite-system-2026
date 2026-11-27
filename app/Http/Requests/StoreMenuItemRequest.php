@@ -17,7 +17,7 @@ class StoreMenuItemRequest extends FormRequest
             'description' => ['nullable', 'string', 'max:500'],
             'price' => ['required', 'numeric', 'gt:0', 'max:9999999999.99'],
             'is_active' => ['sometimes', 'boolean'],
-            'is_available' => ['prohibited'],
+            'is_available' => ['sometimes', 'boolean'],
         ];
     }
 }

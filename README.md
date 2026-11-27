@@ -49,7 +49,7 @@ Orders accept COD only and require a UUID `idempotency_key`, a Hub, Brand, deliv
 
 ## Important scope notes
 - UC3 stores the selected payment method; this starter does not implement a payment gateway.
-- Menu item catalog activation (`menu_items.is_active`, UC14) is separate from Hub availability (`hub_menu_items.is_available`, UC9). Existing global availability was copied to Hub assignments by the additive migration. New UC14 items are inactive at each Hub until the UC9 availability flow sets the pivot.
+- Menu item catalog activation (`menu_items.is_active`) is separate from Availability (`menu_items.is_available`). Admin can set Available/Unavailable in UC14; the chosen status is synchronized to all current Hub assignments in `hub_menu_items`, and new Hub assignments inherit it.
 - The approved proposal leaves distance limits and distance-based delivery fee rules unresolved (Assumption A-02 pending). The current local fee of 15,000 VND and surcharge of 0 VND remain configurable through `SAIGONBITE_DELIVERY_FEE` and `SAIGONBITE_SURCHARGE`; they are not a confirmed production pricing policy. No geocoder or maximum distance rule is configured.
 - Voucher management is external to UC3/UC14 (Assumption A-13). Voucher codes are never silently accepted: requests containing a voucher return a validation error until an external read-only voucher provider is integrated. The app has no voucher CRUD/table.
 - The restaurant names, branches, and menu prices are a public-data snapshot and can change. The app stores orders locally; it does not send them to restaurant POS systems or synchronize live stock, branch availability, or capacity. Confirm current prices and obtain restaurant integration approval before accepting real customer orders.
